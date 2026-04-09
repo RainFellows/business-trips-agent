@@ -1,20 +1,21 @@
 /**
- * @version 2.2.0
+ * @version 2.3.0
  * @author Antigravity AI
  * @description Automatizace cestovních příkazů z Kalendáře do Tabulky.
- * Fix 2.2.0: Oprava filtrace (vlastní události) a rozsahu dat (zahrnutí posledního dne).
+ * Feature 2.3.0: Podpora jízdy autem (KM výpočet) a analýza klientů z účastníků.
  */
 
 // --- KONFIGURACE ---
 const CONFIG = {
   DOMOVSKE_MESTO: "Ostrava",
-  HLEDANY_TEXT: "vlakem", 
+  HLEDANY_TEXT: "vlakem OR autem", 
   HODINY_BUFFER: 1,       
   EMAIL_PREDMET: "Cestovní report připraven: ",
   EMAIL_PRIJEMCE: Session.getActiveUser().getEmail(), 
-  SHEET_HEADER: ["Popis cesty", "Odjezd (Datum a čas)", "Příjezd (Datum a čas)", "Destinace"],
+  SHEET_HEADER: ["Popis cesty", "Odjezd", "Příjezd", "Destinace", "km autem", "Klient"],
+  IGNOROVANE_DOMENY: ["rainfellows.cz", "gmail.com", "seznam.cz", "outlook.com", "email.cz"],
   COLORS: {
-    HEADER_BG: "#4c1130", // Tmavě vínová (profi vzhled)
+    HEADER_BG: "#4c1130",
     HEADER_TEXT: "#ffffff",
     ROW_BANDING: "#f3f3f3",
     BORDER: "#000000"
@@ -100,6 +101,7 @@ function ziskatCestyZKalendare(start, end) {
 
     const id = udalost.getId();
     const titleLower = udalost.getTitle().toLowerCase();
+    const jeAuto = titleLower.includes("autem");
     
     if (zpracovaneIDs.has(id)) continue;
 
@@ -108,94 +110,110 @@ function ziskatCestyZKalendare(start, end) {
       const jePrijezd = titleLower.includes("do " + homeCityLower);
 
       if (jeOdjezd) {
-        zpracovatOdjezd(udalost, titleLower, cesty, zpracovaneIDs);
+        zpracovatOdjezd(udalost, titleLower, cesty, zpracovaneIDs, jeAuto);
       } else if (jePrijezd) {
-        zpracovatPrijezd(udalost, titleLower, cesty, zpracovaneIDs);
+        zpracovatPrijezd(udalost, titleLower, cesty, zpracovaneIDs, jeAuto);
       }
     } else if (titleLower.includes("z ") && titleLower.includes("do ")) {
-      zpracovatCestuMeziMesty(udalost, titleLower, cesty, zpracovaneIDs);
+      zpracovatCestuMeziMesty(udalost, titleLower, cesty, zpracovaneIDs, jeAuto);
     }
   }
 
   return cesty;
 }
 
-function zpracovatOdjezd(udalost, title, cestyRef, idsRef) {
+function zpracovatOdjezd(udalost, title, cestyRef, idsRef, jeAuto) {
   const zacatek = udalost.getStartTime();
-  const startCesty = new Date(zacatek.getTime() - CONFIG.HODINY_BUFFER * 3600000);
+  const buffer = jeAuto ? 0 : CONFIG.HODINY_BUFFER;
+  const startCesty = new Date(zacatek.getTime() - buffer * 3600000);
   
   let cil = title.match(/do ([^,]+)/i);
   cil = cil ? cil[1].trim() : "Neznámá destinace";
 
+  const km = jeAuto ? ziskatKm(CONFIG.DOMOVSKE_MESTO, cil) : "";
+  const klient = ziskatKlientaZPrekryvu(udalost.getStartTime(), udalost.getEndTime(), udalost.getId());
+
   cestyRef.push({
-    typ: `Cesta do: ${cil}`, // Upravený popis pro lepší čitelnost
-    start: startCesty,       // Ukládáme jako Date object pro formátování v Sheets
+    typ: `Cesta do: ${cil} (${jeAuto ? 'auto' : 'vlak'})`,
+    start: startCesty,
     konec: "",
     cil: cil,
-    jeDoma: false,           // Příznak, že jsme na cestě
+    jeDoma: false,
+    jeAuto: jeAuto,
+    km: km,
+    klient: klient,
     udalostId: udalost.getId()
   });
   
   idsRef.add(udalost.getId());
 }
 
-function zpracovatPrijezd(udalost, title, cestyRef, idsRef) {
+function zpracovatPrijezd(udalost, title, cestyRef, idsRef, jeAuto) {
   const konec = udalost.getEndTime();
-  const konecCesty = new Date(konec.getTime() + CONFIG.HODINY_BUFFER * 3600000);
-  
-  let startMesto = title.match(/z ([^,]+)/i);
-  startMesto = startMesto ? startMesto[1].trim() : "";
-
-  // INTELIGENTNÍ PÁROVÁNÍ
-  // 1. Zkusíme najít poslední otevřenou cestu (kde není vyplněný konec)
-  // 2. Nebudeme striktně porovnávat město (protože "Praha hl.n." != "Praha")
-  // 3. Předpokládáme, že pokud mám otevřenou cestu z domova, tento příjezd domů k ní patří.
+  const buffer = jeAuto ? 0 : CONFIG.HODINY_BUFFER;
+  const konecCesty = new Date(konec.getTime() + buffer * 3600000);
   
   let sparovano = false;
   
-  // Procházíme odzadu, hledáme poslední nedokončenou cestu
   for (let j = cestyRef.length - 1; j >= 0; j--) {
     const cesta = cestyRef[j];
     
-    // Podmínka párování: Je to cesta pryč a ještě nemá konec (návrat)
     if (cesta.konec === "" && !cesta.jeDoma) {
-      cesta.konec = konecCesty; // Doplníme čas návratu
-      cesta.typ = `Cesta: ${CONFIG.DOMOVSKE_MESTO} -> ${cesta.cil} a zpět`; // Aktualizujeme název
-      cesta.jeDoma = true; // Uzavřeme cestu
+      cesta.konec = konecCesty; 
+      cesta.typ = `Cesta: ${CONFIG.DOMOVSKE_MESTO} -> ${cesta.cil} a zpět (${jeAuto ? 'auto' : 'vlak'})`;
+      if (jeAuto && cesta.km) cesta.km = cesta.km * 2; // Tam i zpět
       
+      // Pokud u první cesty klient nebyl, zkusíme ho najít u zpáteční cesty
+      if (!cesta.klient) {
+        cesta.klient = ziskatKlientaZPrekryvu(udalost.getStartTime(), udalost.getEndTime(), udalost.getId());
+      }
+      
+      cesta.jeDoma = true;
       idsRef.add(udalost.getId());
       sparovano = true;
-      Logger.log(`Spárováno fuzzy logikou: ${cesta.cil} <-> Návrat domů`);
       break;
     }
   }
 
-  // Pokud se nespárovalo (např. chybí odjezd v kalendáři), zapíšeme samostatně
   if (!sparovano) {
+    const startMesto = title.match(/z ([^,]+)/i);
+    const startMestoText = startMesto ? startMesto[1].trim() : "";
+    const km = jeAuto ? ziskatKm(startMestoText, CONFIG.DOMOVSKE_MESTO) : "";
+    const klient = ziskatKlientaZPrekryvu(udalost.getStartTime(), udalost.getEndTime(), udalost.getId());
+
     cestyRef.push({
-      typ: "Příjezd domů (chybí odjezd)",
+      typ: `Příjezd domů (chybí odjezd) - ${jeAuto ? 'auto' : 'vlak'}`,
       start: "",
       konec: konecCesty,
       cil: CONFIG.DOMOVSKE_MESTO,
       jeDoma: true,
+      jeAuto: jeAuto,
+      km: km,
+      klient: klient,
       udalostId: udalost.getId()
     });
     idsRef.add(udalost.getId());
   }
 }
 
-function zpracovatCestuMeziMesty(udalost, title, cestyRef, idsRef) {
+function zpracovatCestuMeziMesty(udalost, title, cestyRef, idsRef, jeAuto) {
   let startMesto = title.match(/z ([^,]+)/i);
   startMesto = startMesto ? startMesto[1].trim() : "";
   let cilMesto = title.match(/do ([^,]+)/i);
   cilMesto = cilMesto ? cilMesto[1].trim() : "";
 
+  const km = jeAuto ? ziskatKm(startMesto, cilMesto) : "";
+  const klient = ziskatKlientaZPrekryvu(udalost.getStartTime(), udalost.getEndTime(), udalost.getId());
+
   cestyRef.push({
-    typ: "Cesta vlakem (mimo domov)",
+    typ: `Cesta: ${startMesto} -> ${cilMesto} (${jeAuto ? 'auto' : 'vlak'})`,
     start: udalost.getStartTime(),
     konec: udalost.getEndTime(),
     cil: `${startMesto} -> ${cilMesto}`,
     jeDoma: false,
+    jeAuto: jeAuto,
+    km: km,
+    klient: klient,
     udalostId: udalost.getId()
   });
   
@@ -219,7 +237,7 @@ function zapsatDoTabulky(ss, data, nazevZaklad) {
   const headerRange = list.getRange(1, 1, 1, CONFIG.SHEET_HEADER.length);
   
   // 2. Příprava dat
-  const rows = data.map(c => [c.typ, c.start, c.konec, c.cil]);
+  const rows = data.map(c => [c.typ, c.start, c.konec, c.cil, c.km, c.klient]);
 
   // 3. Hromadný zápis dat
   if (rows.length > 0) {
@@ -244,24 +262,23 @@ function zapsatDoTabulky(ss, data, nazevZaklad) {
       .setNumberFormat("dd.MM.yyyy HH:mm")
       .setHorizontalAlignment("center"); // Časy na střed
 
-    // D) Zarovnání textů (Sloupec 1 a 4)
-    list.getRange(2, 1, rows.length, 1).setHorizontalAlignment("left");
-    list.getRange(2, 4, rows.length, 1).setHorizontalAlignment("left");
+    // D) Zarovnání textů 
+    list.getRange(2, 1, rows.length, 1).setHorizontalAlignment("left"); // Typ
+    list.getRange(2, 4, rows.length, 1).setHorizontalAlignment("left"); // Destinace
+    list.getRange(2, 5, rows.length, 1).setHorizontalAlignment("center"); // KM
+    list.getRange(2, 6, rows.length, 1).setHorizontalAlignment("left"); // Klient
 
-    // E) Střídavé barvy řádků (Zebra striping) - pro lepší čitelnost
-    // Pokud je hodně řádků, uděláme to jednoduše přes loop nebo conditional formatting,
-    // ale nejčistší je applyRowBanding (pokud ho metoda podporuje, jinak manuálně)
-    // GAS má applyRowBanding na range.
+    // E) Střídavé barvy řádků (Zebra striping)
     if (fullTableRange.getBandings().length === 0) {
        fullTableRange.applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY);
     }
 
     // F) Auto-resize
-    list.autoResizeColumns(1, 4);
+    list.autoResizeColumns(1, CONFIG.SHEET_HEADER.length);
     
-    // Trochu rozšířit sloupce pro vzdušnost (optional)
-    const currentWidth1 = list.getColumnWidth(1);
-    if (currentWidth1 < 200) list.setColumnWidth(1, 250); // Sloupec Popis
+    // Trochu rozšířit sloupce pro vzdušnost
+    if (list.getColumnWidth(1) < 200) list.setColumnWidth(1, 260); 
+    if (list.getColumnWidth(6) < 150) list.setColumnWidth(6, 200); 
   }
 
   Logger.log(`Zapsáno a naformátováno ${rows.length} řádků.`);
@@ -304,8 +321,61 @@ function dev_dryRunTest() {
   
   Logger.log(`VÝSLEDEK: Nalezeno ${cesty.length} cest k zapsání.`);
   cesty.forEach((c, i) => {
-    Logger.log(`${i+1}. [${c.typ}] | Cíl: ${c.cil} | Odjezd: ${c.start.toLocaleString()} | Příjezd: ${c.konec ? c.konec.toLocaleString() : "???"}`);
+    Logger.log(`${i+1}. [${c.typ}] | Cíl: ${c.cil} | Odjezd: ${c.start.toLocaleString()} | Příjezd: ${c.konec ? c.konec.toLocaleString() : "???"} | KM: ${c.km || '-'} | Klient: ${c.klient || '???'}`);
   });
   
   Logger.log("--- KONEC TESTU ---");
+}
+
+/**
+ * Zjistí vzdálenost mezi městy pomocí Google Maps.
+ */
+function ziskatKm(startMesto, cilMesto) {
+  if (!startMesto || !cilMesto || startMesto === cilMesto) return 0;
+  
+  try {
+    const directions = Maps.newDirectionFinder()
+      .setOrigin(startMesto)
+      .setDestination(cilMesto)
+      .setMode(Maps.DirectionFinder.Mode.DRIVING)
+      .getDirections();
+    
+    if (directions.routes && directions.routes.length > 0) {
+      const meters = directions.routes[0].legs[0].distance.value;
+      return Math.ceil(meters / 1000); // Kilometry zaokrouhlené nahoru
+    }
+  } catch (e) {
+    Logger.log(`Chyba při výpočtu KM (${startMesto} -> ${cilMesto}): ${e.message}`);
+  }
+  return 0;
+}
+
+/**
+ * Analyzuje klienty z účastníků událostí, které se překrývají s cestou.
+ */
+function ziskatKlientaZPrekryvu(start, end, transportEventId) {
+  if (!start || !end) return "";
+  
+  const calendar = CalendarApp.getDefaultCalendar();
+  const udalosti = calendar.getEvents(start, end);
+  const domeny = new Set();
+  
+  udalosti.forEach(ev => {
+    // Přeskočíme samotnou cestovní událost
+    if (ev.getId() === transportEventId) return;
+    
+    const guests = ev.getGuestList();
+    guests.forEach(guest => {
+      const email = guest.getEmail().toLowerCase();
+      const match = email.match(/@([^@]+)$/);
+      if (match) {
+        const domena = match[1];
+        if (!CONFIG.IGNOROVANE_DOMENY.includes(domena)) {
+          domeny.add(domena);
+        }
+      }
+    });
+  });
+  
+  return Array.from(domeny).join(", ");
 }
