@@ -1,8 +1,8 @@
 /**
- * @version 2.3.2
+ * @version 2.3.3
  * @author Antigravity AI
  * @description Automatizace cestovních příkazů z Kalendáře do Tabulky.
- * Feature 2.3.2: Rozšíření hledání klienta na celé období pracovní cesty.
+ * Feature 2.3.3: Filtrování klientů pouze z potvrzených událostí (status YES/OWNER).
  */
 
 // --- KONFIGURACE ---
@@ -298,7 +298,16 @@ function ziskatKlientaZPrekryvu(start, end, transportEventId) {
   const domeny = new Set();
   
   udalosti.forEach(ev => {
+    // Přeskočíme samotnou cestovní událost
     if (ev.getId() === transportEventId) return;
+    
+    // FILTRACE: Pouze schůzky, které jsem přijal nebo jsem jejich organizátor
+    const myStatus = ev.getMyStatus();
+    if (myStatus !== CalendarApp.GuestStatus.YES && myStatus !== CalendarApp.GuestStatus.OWNER) {
+      return;
+    }
+    
+    // 1. Získáme hosty (včetně nepotvrzených)
     const guestEmails = ev.getGuestList(true).map(g => g.getEmail().toLowerCase());
     const creators = ev.getCreators().map(c => c.toLowerCase());
     [...guestEmails, ...creators].forEach(email => {
