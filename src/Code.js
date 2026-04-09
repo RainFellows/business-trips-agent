@@ -1,8 +1,8 @@
 /**
- * @version 2.3.1
+ * @version 2.3.2
  * @author Antigravity AI
  * @description Automatizace cestovních příkazů z Kalendáře do Tabulky.
- * Feature 2.3.1: Oprava detekce klienta (zahrnutí organizátorů a nepotvrzených hostů).
+ * Feature 2.3.2: Rozšíření hledání klienta na celé období pracovní cesty.
  */
 
 // --- KONFIGURACE ---
@@ -150,9 +150,8 @@ function zpracovatPrijezd(udalost, title, cestyRef, idsRef, jeAuto) {
       cesta.typ = `Cesta: ${CONFIG.DOMOVSKE_MESTO} -> ${cesta.cil} a zpět (${jeAuto ? 'auto' : 'vlak'})`;
       if (jeAuto && cesta.km) cesta.km = cesta.km * 2; 
       
-      if (!cesta.klient) {
-        cesta.klient = ziskatKlientaZPrekryvu(udalost.getStartTime(), udalost.getEndTime(), udalost.getId());
-      }
+      // HLEDÁME KLIENTA V CELÉ DOBĚ PRACOVNÍ CESTY (od startu do konce)
+      cesta.klient = ziskatKlientaZPrekryvu(cesta.start, cesta.konec, "");
       
       cesta.jeDoma = true;
       idsRef.add(udalost.getId());
