@@ -13,7 +13,7 @@ const CONFIG = {
   EMAIL_PREDMET: "Cestovní report připraven: ",
   EMAIL_PRIJEMCE: Session.getActiveUser().getEmail(), 
   SHEET_HEADER: ["Popis cesty", "Odjezd", "Příjezd", "Destinace", "km autem", "Klient"],
-  IGNOROVANE_DOMENY: ["rainfellows.cz", "gmail.com", "seznam.cz", "outlook.com", "email.cz"],
+  IGNOROVANE_DOMENY: ["rainfellows.cz", "gmail.com", "seznam.cz", "outlook.com", "email.cz", "milovkynekrasy.cz"],
   COLORS: {
     HEADER_BG: "#4c1130",
     HEADER_TEXT: "#ffffff",
