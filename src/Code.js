@@ -382,3 +382,30 @@ function ziskatKlientaZPrekryvu(start, end, transportEventId) {
   
   return Array.from(domeny).join(", ");
 }
+/**
+ * DIAGNOSTIKA: Vypíše detaily o všech událostech v aktuálnì zpracovávaném období.
+ * Slouží k odhalení, proè se u nìkterých událostí nenaèetl klient.
+ */
+function dev_diagVypisDetailyUdalosti() {
+  Logger.log("--- START DIAGNOSTIKY ---");
+  const perioda = ziskatObdobiMinulehoMesice();
+  const calendar = CalendarApp.getDefaultCalendar();
+  const udalosti = calendar.getEvents(perioda.start, perioda.end);
+  
+  Logger.log(Období:  - );
+  Logger.log(Celkem událostí v kalendáøi: );
+  
+  udalosti.forEach((ev, i) => {
+    const creators = ev.getCreators();
+    const guests = ev.getGuestList(true);
+    
+    Logger.log(${i+1}. []);
+    Logger.log(   Èas:  - );
+    Logger.log(   Tvùrci: );
+    Logger.log(   Hosté (): );
+    Logger.log(   ID: );
+    Logger.log("------------------------------------------");
+  });
+  
+  Logger.log("--- KONEC DIAGNOSTIKY ---");
+}
