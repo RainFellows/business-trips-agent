@@ -1,8 +1,8 @@
 /**
- * @version 2.3.0
+ * @version 2.3.1
  * @author Antigravity AI
  * @description Automatizace cestovních příkazů z Kalendáře do Tabulky.
- * Feature 2.3.0: Podpora jízdy autem (KM výpočet) a analýza klientů z účastníků.
+ * Feature 2.3.1: Oprava detekce klienta (zahrnutí organizátorů a nepotvrzených hostů).
  */
 
 // --- KONFIGURACE ---
@@ -364,9 +364,12 @@ function ziskatKlientaZPrekryvu(start, end, transportEventId) {
     // Přeskočíme samotnou cestovní událost
     if (ev.getId() === transportEventId) return;
     
-    const guests = ev.getGuestList();
-    guests.forEach(guest => {
-      const email = guest.getEmail().toLowerCase();
+    const guests = ev.getGuestList(true);
+    const guestEmails = guests.map(g => g.getEmail().toLowerCase());
+    const creators = ev.getCreators().map(c => c.toLowerCase());
+    const vsechnyEmaily = [...guestEmails, ...creators];
+    
+    vsechnyEmaily.forEach(email => {
       const match = email.match(/@([^@]+)$/);
       if (match) {
         const domena = match[1];
