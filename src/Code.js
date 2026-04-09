@@ -54,15 +54,20 @@ function main_generovatCestovniPrikazy() {
 
 function ziskatObdobiMinulehoMesice() {
   const dnes = new Date();
-  const posledniDenMinuleho = new Date(dnes.getFullYear(), dnes.getMonth(), 0);
+  
+  // První den minulého měsíce 00:00:00
   const prvniDenMinuleho = new Date(dnes.getFullYear(), dnes.getMonth() - 1, 1);
+  
+  // První den AKTUÁLNÍHO měsíce 00:00:00 
+  // To zajistí, že getEvents(start, end) zahrne i události z celého posledního dne minulého měsíce
+  const prvniDenTohoto = new Date(dnes.getFullYear(), dnes.getMonth(), 1);
   
   let nazevMesice = prvniDenMinuleho.toLocaleString('cs-CZ', { month: 'long' });
   nazevMesice = nazevMesice.charAt(0).toUpperCase() + nazevMesice.slice(1);
 
   return {
     start: prvniDenMinuleho,
-    end: posledniDenMinuleho,
+    end: prvniDenTohoto,
     nazevListu: nazevMesice
   };
 }
@@ -70,6 +75,7 @@ function ziskatObdobiMinulehoMesice() {
 function ziskatCestyZKalendare(start, end) {
   const calendar = CalendarApp.getDefaultCalendar();
   const udalosti = calendar.getEvents(start, end, { q: CONFIG.HLEDANY_TEXT });
+  const myEmail = Session.getActiveUser().getEmail();
   
   Logger.log(`Nalezeno hrubých událostí: ${udalosti.length}`);
 
@@ -82,6 +88,15 @@ function ziskatCestyZKalendare(start, end) {
 
   for (let i = 0; i < udalosti.length; i++) {
     const udalost = udalosti[i];
+    
+    // FILTRACE: Pouze mé události (kontrola tvůrce)
+    //getCreators vrací pole emailů, které událost vytvořily (u sdílených kalendářů tam bývá ten, kdo ji tam dal)
+    const creatory = udalost.getCreators();
+    if (!creatory.includes(myEmail)) {
+      Logger.log(`Přeskakuji událost - nejsem tvůrce: ${udalost.getTitle()} (Vytvořil: ${creatory.join(', ')})`);
+      continue;
+    }
+
     const id = udalost.getId();
     const titleLower = udalost.getTitle().toLowerCase();
     
@@ -273,4 +288,23 @@ function odeslatNotifikaci(url, mesic, pocetCest) {
       </div>
     `
   });
+}
+
+/**
+ * POMOCNÁ FUNKCE PRO TESTOVÁNÍ (DRY RUN)
+ * Spusťte tuto funkci v Apps Script editoru pro ověření fixu bez zápisu do ostré tabulky.
+ */
+function dev_dryRunTest() {
+  Logger.log("--- ZAČÁTEK TESTU (DRY RUN) ---");
+  const perioda = ziskatObdobiMinulehoMesice();
+  Logger.log(`Testované období: ${perioda.start.toLocaleString()} - ${perioda.end.toLocaleString()}`);
+  
+  const cesty = ziskatCestyZKalendare(perioda.start, perioda.end);
+  
+  Logger.log(`VÝSLEDEK: Nalezeno ${cesty.length} cest k zapsání.`);
+  cesty.forEach((c, i) => {
+    Logger.log(`${i+1}. [${c.typ}] | Cíl: ${c.cil} | Odjezd: ${c.start.toLocaleString()} | Příjezd: ${c.konec ? c.konec.toLocaleString() : "???"}`);
+  });
+  
+  Logger.log("--- KONEC TESTU ---");
 }

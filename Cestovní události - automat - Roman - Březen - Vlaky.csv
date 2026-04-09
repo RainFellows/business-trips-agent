@@ -1,0 +1,11 @@
+Popis cesty,Odjezd (Datum a čas),Příjezd (Datum a čas),Destinace,Chyby
+Cesta: Ostrava -> praha hl.n. a zpět,02.03.2026 04:15,02.03.2026 19:38,praha hl.n.,
+Cesta: Ostrava -> praha hl.n. a zpět,04.03.2026 06:15,05.03.2026 17:38,praha hl.n.,
+Cesta: Ostrava -> praha a zpět,09.03.2026 04:45,09.03.2026 21:38,praha,
+Cesta vlakem (mimo domov),11.03.2026 15:00,11.03.2026 15:15,tery do momentu -> momentu,Událost Terky ne moje
+Cesta: Ostrava -> praha hl.n. a zpět,12.03.2026 06:15,12.03.2026 21:38,praha hl.n.,
+Cesta: Ostrava -> praha hl.n. a zpět,16.03.2026 04:15,16.03.2026 21:38,praha hl.n.,
+Cesta: Ostrava -> praha a zpět,19.03.2026 05:54,19.03.2026 21:05,praha,
+Cesta: Ostrava -> čeladná (auto) a zpět,20.03.2026 05:45,20.03.2026 14:45,čeladná (auto),
+Cesta: Ostrava -> praha hl.n. a zpět,25.03.2026 05:24,26.03.2026 21:38,praha hl.n.,
+Cesta do: praha,30.03.2026 04:49,,praha,chybí cesta zpět 31.3.
