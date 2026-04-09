@@ -1,7 +1,8 @@
 /**
- * @version 2.1.0
- * @author Google Workspace Automation Architect
- * @description Automatizace cestovních příkazů z Kalendáře do Tabulky s pokročilým formátováním.
+ * @version 2.2.0
+ * @author Antigravity AI
+ * @description Automatizace cestovních příkazů z Kalendáře do Tabulky.
+ * Fix 2.2.0: Oprava filtrace (vlastní události) a rozsahu dat (zahrnutí posledního dne).
  */
 
 // --- KONFIGURACE ---

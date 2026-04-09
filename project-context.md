@@ -41,7 +41,7 @@ Google Sheets    Gmail (notification)
 
 | File | Purpose |
 |------|---------|
-| `src/Code.js` | Main script — all runtime logic (276 lines) |
+| `src/Code.js` | Main script — all runtime logic (290 lines) |
 | `src/appsscript.json` | Manifest: timezone, OAuth scopes, runtime version |
 | `.clasp.json` | Clasp config: scriptId, rootDir=`src` |
 
