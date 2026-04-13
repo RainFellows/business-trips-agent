@@ -1,8 +1,8 @@
 /**
- * @version 2.3.3
+ * @version 2.4.0
  * @author Antigravity AI
  * @description Automatizace cestovních příkazů z Kalendáře do Tabulky.
- * Feature 2.3.3: Filtrování klientů pouze z potvrzených událostí (status YES/OWNER).
+ * Feature 2.4.0: Standardizace měst, oddělení dopravy do sloupce, vylepšená filtrace.
  */
 
 // --- KONFIGURACE ---
@@ -239,7 +239,7 @@ function zapsatDoTabulky(ss, data, nazevZaklad) {
       .setHorizontalAlignment("center");
 
     list.getRange(2, 1, rows.length, 1).setHorizontalAlignment("left"); 
-    list.getRange(2, 4, rows.length, 1).setHorizontalAlignment("left"); 
+    list.getRange(2, 4, rows.length, 1).setHorizontalAlignment("center"); 
     list.getRange(2, 5, rows.length, 1).setHorizontalAlignment("center");
     list.getRange(2, 6, rows.length, 1).setHorizontalAlignment("center");
     list.getRange(2, 7, rows.length, 1).setHorizontalAlignment("left"); 
