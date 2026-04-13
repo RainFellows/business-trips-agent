@@ -12,8 +12,8 @@ const CONFIG = {
   HODINY_BUFFER: 1,       
   EMAIL_PREDMET: "Cestovní report připraven: ",
   EMAIL_PRIJEMCE: Session.getActiveUser().getEmail(), 
-  SHEET_HEADER: ["Popis cesty", "Odjezd", "Příjezd", "Destinace", "km autem", "Klient"],
-  IGNOROVANE_DOMENY: ["rainfellows.cz", "gmail.com", "seznam.cz", "outlook.com", "email.cz", "milovkynekrasy.cz"],
+  SHEET_HEADER: ["Popis cesty", "Odjezd", "Příjezd", "Destinace", "Doprava", "km autem", "Klient"],
+  IGNOROVANE_DOMENY: ["rainfellows.cz", "gmail.com", "seznam.cz", "outlook.com", "email.cz", "milovkynekrasy.cz", "rfconsultants.cz", "resource.calendar.google.com"],
   COLORS: {
     HEADER_BG: "#4c1130",
     HEADER_TEXT: "#ffffff",
@@ -115,13 +115,14 @@ function zpracovatOdjezd(udalost, title, cestyRef, idsRef, jeAuto) {
   const startCesty = new Date(zacatek.getTime() - buffer * 3600000);
   
   let cil = title.match(/do ([^,]+)/i);
-  cil = cil ? cil[1].trim() : "Neznámá destinace";
+  cil = cil ? formatovatMesto(cil[1]) : "Neznámá destinace";
 
   const km = jeAuto ? ziskatKm(CONFIG.DOMOVSKE_MESTO, cil) : "";
   const klient = ziskatKlientaZPrekryvu(udalost.getStartTime(), udalost.getEndTime(), udalost.getId());
 
   cestyRef.push({
-    typ: `Cesta do: ${cil} (${jeAuto ? 'auto' : 'vlak'})`,
+    typ: `${cil}`,
+    doprava: jeAuto ? 'Auto' : 'Vlak',
     start: startCesty,
     konec: "",
     cil: cil,
@@ -147,7 +148,7 @@ function zpracovatPrijezd(udalost, title, cestyRef, idsRef, jeAuto) {
     
     if (cesta.konec === "" && !cesta.jeDoma) {
       cesta.konec = konecCesty; 
-      cesta.typ = `Cesta: ${CONFIG.DOMOVSKE_MESTO} -> ${cesta.cil} a zpět (${jeAuto ? 'auto' : 'vlak'})`;
+      cesta.typ = `${CONFIG.DOMOVSKE_MESTO} -> ${cesta.cil} a zpět`;
       if (jeAuto && cesta.km) cesta.km = cesta.km * 2; 
       
       // HLEDÁME KLIENTA V CELÉ DOBĚ PRACOVNÍ CESTY (od startu do konce)
@@ -162,12 +163,13 @@ function zpracovatPrijezd(udalost, title, cestyRef, idsRef, jeAuto) {
 
   if (!sparovano) {
     const startMesto = title.match(/z ([^,]+)/i);
-    const startMestoText = startMesto ? startMesto[1].trim() : "";
+    const startMestoText = startMesto ? formatovatMesto(startMesto[1]) : "";
     const km = jeAuto ? ziskatKm(startMestoText, CONFIG.DOMOVSKE_MESTO) : "";
     const klient = ziskatKlientaZPrekryvu(udalost.getStartTime(), udalost.getEndTime(), udalost.getId());
 
     cestyRef.push({
-      typ: `Příjezd domů (chybí odjezd) - ${jeAuto ? 'auto' : 'vlak'}`,
+      typ: `Příjezd domů (chybí odjezd)`,
+      doprava: jeAuto ? 'Auto' : 'Vlak',
       start: "",
       konec: konecCesty,
       cil: CONFIG.DOMOVSKE_MESTO,
@@ -183,15 +185,16 @@ function zpracovatPrijezd(udalost, title, cestyRef, idsRef, jeAuto) {
 
 function zpracovatCestuMeziMesty(udalost, title, cestyRef, idsRef, jeAuto) {
   let startMesto = title.match(/z ([^,]+)/i);
-  startMesto = startMesto ? startMesto[1].trim() : "";
+  startMesto = startMesto ? formatovatMesto(startMesto[1]) : "";
   let cilMesto = title.match(/do ([^,]+)/i);
-  cilMesto = cilMesto ? cilMesto[1].trim() : "";
+  cilMesto = cilMesto ? formatovatMesto(cilMesto[1]) : "";
 
   const km = jeAuto ? ziskatKm(startMesto, cilMesto) : "";
   const klient = ziskatKlientaZPrekryvu(udalost.getStartTime(), udalost.getEndTime(), udalost.getId());
 
   cestyRef.push({
-    typ: `Cesta: ${startMesto} -> ${cilMesto} (${jeAuto ? 'auto' : 'vlak'})`,
+    typ: `${startMesto} -> ${cilMesto}`,
+    doprava: jeAuto ? 'Auto' : 'Vlak',
     start: udalost.getStartTime(),
     konec: udalost.getEndTime(),
     cil: `${startMesto} -> ${cilMesto}`,
@@ -217,7 +220,7 @@ function zapsatDoTabulky(ss, data, nazevZaklad) {
 
   list.appendRow(CONFIG.SHEET_HEADER);
   const headerRange = list.getRange(1, 1, 1, CONFIG.SHEET_HEADER.length);
-  const rows = data.map(c => [c.typ, c.start, c.konec, c.cil, c.km, c.klient]);
+  const rows = data.map(c => [c.typ, c.start, c.konec, c.cil, c.doprava, c.km, c.klient]);
 
   if (rows.length > 0) {
     const dataRange = list.getRange(2, 1, rows.length, rows[0].length);
@@ -238,7 +241,8 @@ function zapsatDoTabulky(ss, data, nazevZaklad) {
     list.getRange(2, 1, rows.length, 1).setHorizontalAlignment("left"); 
     list.getRange(2, 4, rows.length, 1).setHorizontalAlignment("left"); 
     list.getRange(2, 5, rows.length, 1).setHorizontalAlignment("center");
-    list.getRange(2, 6, rows.length, 1).setHorizontalAlignment("left"); 
+    list.getRange(2, 6, rows.length, 1).setHorizontalAlignment("center");
+    list.getRange(2, 7, rows.length, 1).setHorizontalAlignment("left"); 
 
     if (fullTableRange.getBandings().length === 0) {
        fullTableRange.applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY);
@@ -246,7 +250,7 @@ function zapsatDoTabulky(ss, data, nazevZaklad) {
 
     list.autoResizeColumns(1, CONFIG.SHEET_HEADER.length);
     if (list.getColumnWidth(1) < 200) list.setColumnWidth(1, 260); 
-    if (list.getColumnWidth(6) < 150) list.setColumnWidth(6, 200); 
+    if (list.getColumnWidth(7) < 150) list.setColumnWidth(7, 200); 
   }
 
   return { listUrl: `${ss.getUrl()}#gid=${list.getSheetId()}` };
@@ -274,7 +278,7 @@ function dev_dryRunTest() {
   const cesty = ziskatCestyZKalendare(perioda.start, perioda.end);
   
   cesty.forEach((c, i) => {
-    Logger.log(`${i+1}. [${c.typ}] | Cíl: ${c.cil} | KM: ${c.km || '-'} | Klient: ${c.klient || '???'}`);
+    Logger.log(`${i+1}. [${c.typ}] | Doprava: ${c.doprava} | Cíl: ${c.cil} | KM: ${c.km || '-'} | Klient: ${c.klient || '???'}`);
   });
   Logger.log("--- KONEC TESTU ---");
 }
@@ -301,23 +305,73 @@ function ziskatKlientaZPrekryvu(start, end, transportEventId) {
     // Přeskočíme samotnou cestovní událost
     if (ev.getId() === transportEventId) return;
     
-    // FILTRACE: Pouze schůzky, které jsem přijal nebo jsem jejich organizátor
+    const titleLower = ev.getTitle().toLowerCase();
+    const myEmail = Session.getActiveUser().getEmail().toLowerCase();
+
+    // 1. FILTRACE: Podle klíčových slov v názvu (Zrušeno / Canceled / Declined)
+    if (titleLower.includes("zrušeno") || 
+        titleLower.includes("zrušená") || 
+        titleLower.includes("canceled") || 
+        titleLower.includes("cancelled") ||
+        titleLower.includes("declined")) {
+      return;
+    }
+
+    // 2. FILTRACE: Pouze schůzky, které jsem přijal (OWNER je brán jako přijatý, pokud není výslovně NO)
     const myStatus = ev.getMyStatus();
+    
+    // Pokud je status NO (odmítnuto), ignorujeme vždy (i u OWNER)
+    if (myStatus === CalendarApp.GuestStatus.NO) return;
+    
+    // Extra kontrola pro OWNER: v některých případech getMyStatus() vrací OWNER, i když je v seznamu hostů NO
+    const myGuestRecord = ev.getGuestByEmail(myEmail);
+    if (myGuestRecord && myGuestRecord.getGuestStatus() === CalendarApp.GuestStatus.NO) {
+      return;
+    }
+    
+    // Musí to být buď OWNER, YES nebo MAYBE (pokud chceme být benevolentnější), 
+    // ale pro jistotu držíme YES / OWNER
     if (myStatus !== CalendarApp.GuestStatus.YES && myStatus !== CalendarApp.GuestStatus.OWNER) {
       return;
     }
     
-    // 1. Získáme hosty (včetně nepotvrzených)
+    // 3. Získáme hosty (včetně nepotvrzených)
     const guestEmails = ev.getGuestList(true).map(g => g.getEmail().toLowerCase());
     const creators = ev.getCreators().map(c => c.toLowerCase());
+    
+    let nalezenaNovaDomena = false;
     [...guestEmails, ...creators].forEach(email => {
       const match = email.match(/@([^@]+)$/);
       if (match && !CONFIG.IGNOROVANE_DOMENY.includes(match[1])) {
-        domeny.add(match[1]);
+        if (!domeny.has(match[1])) {
+           domeny.add(match[1]);
+           nalezenaNovaDomena = true;
+        }
       }
     });
+
+    if (nalezenaNovaDomena) {
+      Logger.log(`   [Identifikace] Událost: "${ev.getTitle()}" | Čas: ${ev.getStartTime().getHours()}:${ev.getStartTime().getMinutes()}`);
+    }
   });
   return Array.from(domeny).join(", ");
+}
+
+/**
+ * Zformátuje název města: Velké první písmeno, odstranění "hl. n." apod.
+ */
+function formatovatMesto(text) {
+  if (!text) return "";
+  let mesto = text.toLowerCase()
+    .replace(/ hl\. ?n\./g, "")
+    .replace(/ hl n/g, "")
+    .replace(/ hl\.n\./g, "")
+    .replace(/ nádraží/g, "")
+    .replace(/ - centrum/g, "")
+    .trim();
+  
+  if (mesto.length === 0) return text;
+  return mesto.charAt(0).toUpperCase() + mesto.slice(1);
 }
 
 /**
