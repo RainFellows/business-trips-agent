@@ -33,6 +33,7 @@ Google Sheets    Gmail (notification)
   - `CalendarApp` — reading calendar events
   - `SpreadsheetApp` — creating/formatting sheets
   - `MailApp` — sending HTML email notifications
+  - `Maps` (DirectionFinder) — automatic distance calculation for car trips
   - `Session` — getting current user email
 - **Deployment**: Container-bound script (lives inside the Google Sheet)
 - **Local Dev**: `clasp` CLI for push/pull between local files and Apps Script
@@ -61,11 +62,24 @@ The core algorithm pairs departure and arrival events:
 - Unmatched arrivals are logged as "missing departure"
 - Uses **fuzzy matching** — doesn't require exact city name match
 
-### 3. Buffer Time
-`HODINY_BUFFER` (default: 1 hour) is subtracted from departure time and added to arrival time. This accounts for travel to/from the train station.
+### 3. Transport Types & Buffer Time
+- **Train**: Keyword `vlakem`. Uses `HODINY_BUFFER` (default: 1 hour) before and after trip for station transfers.
+- **Car**: Keyword `autem`. No buffer time added. Automatically calculates distance using Google Maps (Driving Mode).
 
-### 4. Sheet Naming Convention
-Sheets are named `{CzechMonthName} - Vlaky` (e.g., `Říjen - Vlaky`). If a sheet with the same name already exists, its content is cleared (not deleted) to preserve the sheet ID for external links.
+### 4. Client Identification
+The script identifies clients based on calendar events overlapping with the trip timeframe.
+- **Filtering**: Only meetings where the user is `OWNER` or status is `YES`.
+- **Exclusion**:
+    - **Domains**: Blacklist in `CONFIG.IGNOROVANE_DOMENY`.
+    - **Keywords**: Events with titles containing "Zrušeno", "Canceled", etc., are skipped.
+    - **Status Override**: If the user's status is explicitly `NO` (declined), the event is skipped even if they are the `OWNER`.
+- **Extraction**: Collects unique email domains from participants.
+
+### 5. City Name Standardization
+Helper function `formatovatMesto()` ensures consistent naming (e.g., `praha hl.n.` -> `Praha`). It title-cases the name and strips technical suffixes.
+
+### 6. Sheet Naming & Structure
+Sheets are named `{CzechMonthName} - Vlaky`. New "Doprava" (Transport) column added in v2.4.0. Columns are auto-resized for optimal fit.
 
 ## Function Reference
 
@@ -76,9 +90,12 @@ Sheets are named `{CzechMonthName} - Vlaky` (e.g., `Říjen - Vlaky`). If a shee
 | `ziskatCestyZKalendare(start, end)` | Fetches and parses calendar events into trip objects |
 | `zpracovatOdjezd(udalost, title, cestyRef, idsRef)` | Handles departure events |
 | `zpracovatPrijezd(udalost, title, cestyRef, idsRef)` | Handles arrival events with fuzzy pairing |
-| `zpracovatCestuMeziMesty(udalost, title, cestyRef, idsRef)` | Handles inter-city trips |
-| `zapsatDoTabulky(ss, data, nazevZaklad)` | Creates/clears sheet and writes formatted data |
-| `odeslatNotifikaci(url, mesic, pocetCest)` | Sends HTML email notification |
+| `zpracovatCestuMeziMesty` | Handles inter-city trips |
+| `ziskatKlientaZPrekryvu` | Analyzes overlapping events and returns unique client domains |
+| `ziskatKm(start, end)` | Calls Google Maps API for distance calculation |
+| `formatovatMesto(text)` | Normalizes city names (capitalization, cleaning) |
+| `zapsatDoTabulky` | Creates/clears sheet and writes formatted data |
+| `odeslatNotifikaci` | Sends HTML email notification |
 
 ## Trigger Configuration
 
@@ -99,15 +116,12 @@ Sheets are named `{CzechMonthName} - Vlaky` (e.g., `Říjen - Vlaky`). If a shee
 
 ## Calendar Event Format
 
-The script searches for events containing `"vlakem"` (case-insensitive) and parses the title:
+The script searches for events containing `"vlakem OR autem"` (case-insensitive) and parses the title:
 
 | Event Title Pattern | Interpretation |
 |---|---|
-| `Vlakem z Ostrava do Praha` | Departure from home city |
-| `Vlakem z Praha do Ostrava` | Arrival to home city |
-| `Vlakem z Brno do Praha` | Inter-city trip (not involving home) |
-
-The regex `/(z|do) ([^,]+)/i` extracts city names. The comma acts as a delimiter.
+| `Vlakem z Ostrava do Praha` | Train Trip |
+| `Autem z Ostrava do Čeladná` | Car Trip (distance calc) |
 
 ## Configuration Reference
 
@@ -118,7 +132,8 @@ const CONFIG = {
   HODINY_BUFFER: 1,               // Hours buffer before/after train times
   EMAIL_PREDMET: "Cestovní report připraven: ",
   EMAIL_PRIJEMCE: Session.getActiveUser().getEmail(),
-  SHEET_HEADER: ["Popis cesty", "Odjezd (Datum a čas)", "Příjezd (Datum a čas)", "Destinace"],
+  SHEET_HEADER: ["Popis cesty", "Odjezd", "Příjezd", "Destinace", "Doprava", "km autem", "Klient"],
+  IGNOROVANE_DOMENY: [...],                 // Blacklist for client matching
   COLORS: {
     HEADER_BG: "#4c1130",   // Dark burgundy
     HEADER_TEXT: "#ffffff",
@@ -152,14 +167,13 @@ const CONFIG = {
 1. **Single calendar only**: Reads from the default calendar. Multi-calendar support not implemented.
 2. **Czech locale dependency**: Month names are generated in Czech via `toLocaleString('cs-CZ')`. The V8 runtime supports this, but behavior may vary.
 3. **No duplicate detection**: If the trigger runs twice in a month, the sheet is overwritten (cleared + rewritten), which is safe but loses manual edits.
-4. **Regex fragility**: City name extraction relies on `z {city} do {city}` pattern. Non-standard event titles will be missed or misparsed.
-5. **No tests**: GAS APIs (`CalendarApp`, `SpreadsheetApp`) cannot be mocked locally without a testing framework.
+4. **Regex fragility**: City name extraction relies on `z {city} do {city}` pattern.
+5. **Ghost Events**: API may return events delete or moved instances from recurring series. Tracing logging in `ziskatKlientaZPrekryvu` is used to identify these cases manually.
 
 ## Future Enhancement Ideas
 
+- [x] Configurable transport types (vlak/auto)
+- [x] Dry-run mode for testing (`dev_dryRunTest`)
+- [ ] Summary row with totals (total km, etc.)
 - [ ] Multi-calendar support
-- [ ] Configurable transport types (bus, car, etc.)
-- [ ] Summary row with totals (trip count, total days)
-- [ ] Integration with expense reporting
 - [ ] Unit tests with mocked GAS APIs
-- [ ] Dry-run mode for testing without writing to sheets

@@ -1,14 +1,21 @@
 # 🚄 Business Trips Agent
 
-Google Apps Script automating monthly business trip reports from Google Calendar into Google Sheets.
+Google Apps Script automating monthly business trip reports from Google Calendar into Google Sheets. 
+
+**v2.4.0 Features**:
+- Support for both **Train** and **Car** travel.
+- Automatic **Distance Calculation** via Google Maps API for car trips.
+- Intelligent **Client Identification** by analyzing overlapping calendar events.
+- Advanced filtering and city name standardization.
 
 ## How it works
 
-1. **Trigger**: Runs automatically on the 1st day of each month (midnight)
-2. **Calendar scan**: Reads events from the default calendar matching the keyword `"vlakem"` (by train)
-3. **Trip pairing**: Intelligently pairs departure and arrival events using fuzzy matching
-4. **Sheet generation**: Creates a formatted sheet named `{Month} - Vlaky` with trip data
-5. **Email notification**: Sends an HTML email with a direct link to the generated sheet
+1. **Trigger**: Runs automatically on the 1st day of each month (midnight).
+2. **Calendar scan**: Reads events matching `"vlakem OR autem"`.
+3. **Trip pairing**: Pairs departure and arrival events into round trips.
+4. **Client Matching**: Scans meetings during the trip to identify client domains (filtering out internal and common domains).
+5. **Sheet generation**: Creates a formatted sheet with trip data, including transport mode and calculated distance.
+6. **Email notification**: Sends an HTML email with a direct link to the generated report.
 
 ## Project Structure
 
@@ -35,20 +42,20 @@ clasp push
 clasp open
 ```
 
-## Calendar Event Format
-
-The script expects train events in this format:
-- **Departure**: `Vlakem z Ostrava do Praha` (case-insensitive)
-- **Arrival**: `Vlakem z Praha do Ostrava`
-- **Inter-city**: `Vlakem z Brno do Praha` (trips not involving home city)
+The script expects travel events in this format:
+- **Train (vlakem)**: `Vlakem z Ostrava do Praha`
+- **Car (autem)**: `Autem z Ostrava do Čeladná`
+- **Inter-city**: `Vlakem z Brno do Praha`
 
 ## Configuration
 
 Edit `CONFIG` object in `src/Code.js`:
+```
 
 | Key | Default | Description |
 |-----|---------|-------------|
 | `DOMOVSKE_MESTO` | `"Ostrava"` | Home city for trip pairing |
-| `HLEDANY_TEXT` | `"vlakem"` | Calendar search keyword |
-| `HODINY_BUFFER` | `1` | Hours added before departure / after arrival |
+| `HLEDANY_TEXT` | `"vlakem OR autem"` | Calendar search keywords |
+| `HODINY_BUFFER` | `1` | Buffer time for train trips (not used for cars) |
 | `EMAIL_PRIJEMCE` | Auto-detected | Notification recipient |
+| `IGNOROVANE_DOMENY` | List of strings | Domains to exclude from client matching |
