@@ -101,9 +101,9 @@ Helper function `formatovatMesto()` ensures consistent naming (e.g., `praha hl.n
 The script scans for keywords `"vacation OR dovolená"`.
 - **v2.8.0 Logic**:
     - Each calendar event becomes one row (respecting multi-day ranges).
-    - **Full Day Visibility**: If "All-day" flag is set OR duration >= 8 hours, the row is marked as "Celodenní".
+    - **Full Day Visibility**: All-day events (or >=8h) are automatically detected and formatted.
     - **Formatting**: All-day entries are formatted as `dd.MM.yyyy` (date only), while timed entries include `HH:mm`.
-- **Reporting**: Entries are inserted chronologically into the main report.
+- **Reporting**: Entries are inserted chronologically into the main report. Destination column for vacations is left as "-".
 
 ### 7. Sheet Naming & Structure
 Sheets are named `{CzechMonthName} - Vlaky`. New "Doprava" (Transport) column added in v2.4.0. Columns are auto-resized for optimal fit.

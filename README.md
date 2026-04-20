@@ -51,13 +51,13 @@ The script expects travel events in this format:
 
 ## Configuration
 
-Edit `CONFIG` object in `src/Code.js`:
-```
+Since v2.7.0, the script is managed via the **"Konfigurace"** sheet in your Google Spreadsheet. The first time you run the script, this sheet is automatically created with default values.
 
-| Key | Default | Description |
-|-----|---------|-------------|
-| `DOMOVSKE_MESTO` | `"Ostrava"` | Home city for trip pairing |
-| `HLEDANY_TEXT` | `"vlakem OR autem"` | Calendar search keywords |
-| `HODINY_BUFFER` | `1` | Buffer time for train trips (not used for cars) |
-| `EMAIL_PRIJEMCE` | Auto-detected | Notification recipient |
-| `IGNOROVANE_DOMENY` | List of strings | Domains to exclude from client matching |
+| Key | Description |
+|-----|-------------|
+| **Domovské město** | Home city for trip pairing and distance calculation. |
+| **Časová rezerva - vlak [hod]** | Buffer time added before/after train trips. |
+| **Ignorované domény** | Comma-separated list of domains to exclude from client identification. |
+| **Email pro report** | The recipient of the generated trip report notifications. |
+
+To change which calendar events are scanned (e.g., adding keywords for vacations), edit the `HLEDANY_TEXT` variable in `src/Code.js` (for advanced users).

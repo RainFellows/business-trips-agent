@@ -149,7 +149,7 @@ function zpracovatDovolenou(ev) {
     doprava: "-",
     start: start,
     konec: konec, 
-    cil: jeCelodenni ? "Celý den" : "Dovolená",
+    cil: "-",
     jeDoma: true,
     jeAuto: false,
     jeCelodenni: jeCelodenni,
