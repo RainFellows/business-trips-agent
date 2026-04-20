@@ -1,8 +1,8 @@
 /**
- * @version 2.8.0
+ * @version 2.9.0
  * @author Antigravity AI
  * @description Automatizace cestovních příkazů z Kalendáře do Tabulky.
- * Feature 2.8.0: Robustní konfigurace, vícedenní dovolené a inteligentní formátování.
+ * Feature 2.9.0: Stabilní release (scoring, dovolené, externí konfigurace).
  */
 
 // --- KONFIGURACE (Výchozí hodnoty - budou přepsány listem "Konfigurace") ---

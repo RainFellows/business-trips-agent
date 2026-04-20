@@ -35,7 +35,7 @@ Google Sheets    Gmail (notification)
   - `MailApp` — sending HTML email notifications
   - `Maps` (DirectionFinder) — automatic distance calculation for car trips
   - `Session` — getting current user email
-- **v2.8.0 Features**:
+- **v2.9.0 Features**:
 - Support for both **Train** and **Car** travel.
 - Automatic **Distance Calculation** via Google Maps API for car trips.
 - **Intelligent Main Customer Selection**: Scoring system based on frequency and participants.
@@ -73,7 +73,7 @@ The core algorithm pairs departure and arrival events:
 - **Train**: Keyword `vlakem`. Uses `HODINY_BUFFER` (loaded from "Konfigurace") before and after trip for station transfers.
 - **Car**: Keyword `autem`. No buffer time added. Automatically calculates distance using Google Maps (Driving Mode).
 
-### 4. External Configuration (v2.7.0)
+### 4. External Configuration (v2.9.0)
 The script uses a dedicated tab **"Konfigurace"** to manage settings without touching the code.
 - **Parameters**:
     - `Domovské město`: Used for travel pairing and KM calculation.
@@ -99,7 +99,7 @@ Helper function `formatovatMesto()` ensures consistent naming (e.g., `praha hl.n
 
 ### 6. Vacation & Absence Detection
 The script scans for keywords `"vacation OR dovolená"`.
-- **v2.8.0 Logic**:
+- **v2.9.0 Logic**:
     - Each calendar event becomes one row (respecting multi-day ranges).
     - **Full Day Visibility**: All-day events (or >=8h) are automatically detected and formatted.
     - **Formatting**: All-day entries are formatted as `dd.MM.yyyy` (date only), while timed entries include `HH:mm`.

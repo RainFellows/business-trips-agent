@@ -2,7 +2,7 @@
 
 Google Apps Script automating monthly business trip reports from Google Calendar into Google Sheets. 
 
-**v2.8.0 Features**:
+**v2.9.0 Features**:
 - Support for both **Train** and **Car** travel.
 - Automatic **Distance Calculation** via Google Maps API for car trips.
 - **Intelligent Main Customer Selection**: Scoring system based on frequency and participants.
