@@ -35,12 +35,13 @@ Google Sheets    Gmail (notification)
   - `MailApp` — sending HTML email notifications
   - `Maps` (DirectionFinder) — automatic distance calculation for car trips
   - `Session` — getting current user email
-- **v3.0.0 Features**:
+- **v3.1.0 Features**:
 - Support for both **Train** and **Car** travel.
 - Automatic **Distance Calculation** via Google Maps API for car trips.
 - **Intelligent Main Customer Selection**: Scoring system based on frequency and participants.
 - **Vacation/Absence Detection**: Premium UI highlighting (light blue), multi-day support, and smart formatting.
 - **External Configuration**: Robust management in a "Konfigurace" sheet (with auto-repair).
+- **Universal Sheet Naming**: Reports are named `{Month} - Report` for better clarity.
 - **Premium UI**: Zebra striping, frozen headers, and automated bold highlighting for keys.
 - **Deployment**: Container-bound script (lives inside the Google Sheet)
 - **Local Dev**: `clasp` CLI for push/pull between local files and Apps Script
@@ -106,7 +107,7 @@ The script scans for keywords `"vacation OR dovolená"`.
 - **Reporting**: Entries are inserted chronologically into the main report. Destination column for vacations is left as "-".
 
 ### 7. Sheet Naming & Structure
-Sheets are named `{CzechMonthName} - Vlaky`. New "Doprava" (Transport) column added in v2.4.0. Columns are auto-resized for optimal fit.
+Sheets are named `{CzechMonthName} - Report`. New "Doprava" (Transport) column added in v2.4.0. Columns are auto-resized for optimal fit.
 
 ## Function Reference
 

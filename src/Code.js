@@ -1,8 +1,8 @@
 /**
- * @version 3.0.0
+ * @version 3.1.0
  * @author Antigravity AI
  * @description Automatizace cestovních příkazů z Kalendáře do Tabulky.
- * Feature 3.0.0: Premium UI Release (Zebra, highlighting, frozen headers).
+ * Feature 3.1.0: Universal sheet naming (- Report) and final polish.
  */
 
 // --- KONFIGURACE (Výchozí hodnoty - budou přepsány listem "Konfigurace") ---
@@ -315,7 +315,7 @@ function zpracovatCestuMeziMesty(udalost, title, cestyRef, idsRef, jeAuto) {
 }
 
 function zapsatDoTabulky(ss, data, nazevZaklad) {
-  const nazevListu = `${nazevZaklad} - Vlaky`;
+  const nazevListu = `${nazevZaklad} - Report`;
   let list = ss.getSheetByName(nazevListu);
 
   if (list) {
