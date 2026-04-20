@@ -1,12 +1,12 @@
 /**
- * @version 2.6.0
+ * @version 2.7.0
  * @author Antigravity AI
  * @description Automatizace cestovních příkazů z Kalendáře do Tabulky.
- * Feature 2.6.0: Detekce dovolených/absencí (celý den, dopoledne, odpoledne).
+ * Feature 2.7.0: Externí konfigurace v tabulce (list Konfigurace) a vylepšený design.
  */
 
-// --- KONFIGURACE ---
-const CONFIG = {
+// --- KONFIGURACE (Výchozí hodnoty - budou přepsány listem "Konfigurace") ---
+let CONFIG = {
   DOMOVSKE_MESTO: "Ostrava",
   HLEDANY_TEXT: "vlakem OR autem OR vacation OR dovolená", 
   HODINY_BUFFER: 1,       
@@ -15,10 +15,11 @@ const CONFIG = {
   SHEET_HEADER: ["Popis cesty", "Odjezd", "Příjezd", "Destinace", "Doprava", "km autem", "Klient"],
   IGNOROVANE_DOMENY: ["rainfellows.cz", "gmail.com", "seznam.cz", "outlook.com", "email.cz", "milovkynekrasy.cz", "rfconsultants.cz", "resource.calendar.google.com"],
   COLORS: {
-    HEADER_BG: "#4c1130",
+    HEADER_BG: "#4c1130",   // Tmavě vínová
     HEADER_TEXT: "#ffffff",
     ROW_BANDING: "#f3f3f3",
-    BORDER: "#000000"
+    BORDER: "#000000",
+    CONFIG_HEADER: "#2d3436" // Tmavě šedá pro konfiguraci
   }
 };
 
@@ -30,6 +31,10 @@ function main_generovatCestovniPrikazy() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     if (!ss) throw new Error("Skript neběží v kontejneru tabulky.");
+
+    // NAČTENÍ KONFIGURACE Z TABULKY
+    nactitNeboVytvoritKonfiguraci(ss);
+    Logger.log(`Používám domovské město: ${CONFIG.DOMOVSKE_MESTO}`);
 
     const perioda = ziskatObdobiMinulehoMesice();
     Logger.log(`Zpracovávám období: ${perioda.nazevListu}`);
@@ -184,6 +189,55 @@ function analyzovatDovolenouDne(udalosti) {
   };
 }
 
+/**
+ * Načte konfiguraci z listu "Konfigurace". Pokud neexistuje, vytvoří ho s hezkým designem.
+ */
+function nactitNeboVytvoritKonfiguraci(ss) {
+  const NAME = "Konfigurace";
+  let sheet = ss.getSheetByName(NAME);
+  
+  if (!sheet) {
+    sheet = ss.insertSheet(NAME);
+    const setup = [
+      ["⚙️ KONFIGURACE BUSINESS TRIPS AGENT", "", ""],
+      ["", "", ""],
+      ["PARAMETR", "HODNOTA", "POPIS"],
+      ["Domovské město", CONFIG.DOMOVSKE_MESTO, "Město, ze kterého vyjíždíte (pro párování cest)"],
+      ["Časová rezerva - vlak [hod]", CONFIG.HODINY_BUFFER, "Buffer přidaný před/po cestě vlakem"],
+      ["Ignorované domény", CONFIG.IGNOROVANE_DOMENY.join(", "), "Seznam domén k ignorování u klientů (oddělený čárkou)"],
+      ["Email pro report", CONFIG.EMAIL_PRIJEMCE, "Adresa, na kterou se odesílá hotový report"]
+    ];
+    
+    sheet.getRange(1, 1, setup.length, 3).setValues(setup);
+    
+    // DESIGN
+    sheet.getRange("A1:C1").merge().setFontSize(14).setFontWeight("bold").setBackground("#2d3436").setFontColor("#ffffff").setHorizontalAlignment("center");
+    sheet.getRange("A3:C3").setBackground("#636e72").setFontColor("#ffffff").setFontWeight("bold").setHorizontalAlignment("center");
+    sheet.getRange("A4:A7").setFontWeight("bold").setBackground("#f5f6fa");
+    sheet.setColumnWidth(1, 200);
+    sheet.setColumnWidth(2, 350);
+    sheet.setColumnWidth(3, 400);
+    sheet.getRange("B4:B7").setBorder(true, true, true, true, true, true, "#dfe6e9", SpreadsheetApp.BorderStyle.SOLID);
+    
+    Logger.log("Vytvořen nový konfigurační list se základním nastavením.");
+    return;
+  }
+  
+  // NAČTENÍ HODNOT
+  const data = sheet.getRange("A4:B7").getValues();
+  data.forEach(row => {
+    const key = row[0];
+    const val = row[1];
+    
+    if (key === "Domovské město") CONFIG.DOMOVSKE_MESTO = val;
+    if (key === "Časová rezerva - vlak [hod]") CONFIG.HODINY_BUFFER = parseFloat(val);
+    if (key === "Ignorované domény") {
+      CONFIG.IGNOROVANE_DOMENY = val.split(",").map(d => d.trim().toLowerCase()).filter(d => d !== "");
+    }
+    if (key === "Email pro report") CONFIG.EMAIL_PRIJEMCE = val;
+  });
+}
+
 function zpracovatOdjezd(udalost, title, cestyRef, idsRef, jeAuto) {
   const zacatek = udalost.getStartTime();
   const buffer = jeAuto ? 0 : CONFIG.HODINY_BUFFER;
@@ -321,6 +375,13 @@ function zapsatDoTabulky(ss, data, nazevZaklad) {
 
     if (fullTableRange.getBandings().length === 0) {
        fullTableRange.applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY);
+    }
+    
+    // AUTOMATICKÉ VYROVNÁNÍ SLOUPCŮ
+    list.autoResizeColumns(1, CONFIG.SHEET_HEADER.length);
+    // Drobná rezerva pro čitelnost
+    for (let c = 1; c <= CONFIG.SHEET_HEADER.length; c++) {
+      list.setColumnWidth(c, list.getColumnWidth(c) + 15);
     }
 
     list.autoResizeColumns(1, CONFIG.SHEET_HEADER.length);

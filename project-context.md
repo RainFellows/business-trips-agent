@@ -63,12 +63,17 @@ The core algorithm pairs departure and arrival events:
 - Uses **fuzzy matching** — doesn't require exact city name match
 
 ### 3. Transport Types & Buffer Time
-- **v2.6.0 Features**:
-- Support for both **Train** and **Car** travel.
-- Automatic **Distance Calculation** via Google Maps API for car trips.
-- **Intelligent Main Customer Selection**: Scoring system based on frequency and participants.
-- **Vacation/Absence Detection**: Automatic categorization (Full day, Morning, Afternoon).
-- Advanced filtering and city name standardization.
+- **Train**: Keyword `vlakem`. Uses `HODINY_BUFFER` (loaded from "Konfigurace") before and after trip for station transfers.
+- **Car**: Keyword `autem`. No buffer time added. Automatically calculates distance using Google Maps (Driving Mode).
+
+### 4. External Configuration (v2.7.0)
+The script uses a dedicated tab **"Konfigurace"** to manage settings without touching the code.
+- **Parameters**:
+    - `Domovské město`: Used for travel pairing and KM calculation.
+    - `Časová rezerva - vlak [hod]`: Buffer for train trips.
+    - `Ignorované domény`: Comma-separated list of domains to skip during client identification.
+    - `Email pro report`: Recipient of the notification.
+- **Auto-Initialization**: If the sheet is missing, the script creates it with default values and a premium design.
 
 ### 4. Client Identification (Scoring System)
 The script identifies and ranks clients based on calendar events overlapping with the trip timeframe.
