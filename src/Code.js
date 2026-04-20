@@ -1,8 +1,8 @@
 /**
- * @version 2.9.0
+ * @version 3.0.0
  * @author Antigravity AI
  * @description Automatizace cestovních příkazů z Kalendáře do Tabulky.
- * Feature 2.9.0: Stabilní release (scoring, dovolené, externí konfigurace).
+ * Feature 3.0.0: Premium UI Release (Zebra, highlighting, frozen headers).
  */
 
 // --- KONFIGURACE (Výchozí hodnoty - budou přepsány listem "Konfigurace") ---
@@ -339,6 +339,33 @@ function zapsatDoTabulky(ss, data, nazevZaklad) {
       .setBackground(CONFIG.COLORS.HEADER_BG)
       .setFontColor(CONFIG.COLORS.HEADER_TEXT)
       .setHorizontalAlignment("center");
+    
+    list.setFrozenRows(1);
+
+    // SPECIÁLNÍ FORMÁTOVÁNÍ (Zebra + Zvýraznění dovolených + Tučné písmo)
+    const backgrounds = [];
+    const fontWeights = [];
+    
+    data.forEach((item, i) => {
+      // Výchozí pro cesty (zebra)
+      let rowBg = (i % 2 === 0) ? "#ffffff" : "#f8f9fa";
+      let rowWeights = ["normal", "normal", "normal", "normal", "normal", "normal", "normal"];
+      
+      if (item.typ === "Dovolená") {
+        rowBg = "#e3f2fd";  // Jemná modrá pro dovolenou
+        rowWeights[0] = "bold"; // Typ
+      }
+      
+      if (item.klient && item.klient !== "-") {
+        rowWeights[6] = "bold"; // Klient (sloupec G)
+      }
+      
+      backgrounds.push([rowBg, rowBg, rowBg, rowBg, rowBg, rowBg, rowBg]);
+      fontWeights.push(rowWeights);
+    });
+
+    dataRange.setBackgrounds(backgrounds);
+    dataRange.setFontWeights(fontWeights);
 
     list.getRange(2, 2, rows.length, 2)
       .setNumberFormat("dd.MM.yyyy HH:mm")
@@ -350,16 +377,6 @@ function zapsatDoTabulky(ss, data, nazevZaklad) {
         list.getRange(idx + 2, 2, 1, 2).setNumberFormat("dd.MM.yyyy");
       }
     });
-
-    list.getRange(2, 1, rows.length, 1).setHorizontalAlignment("left"); 
-    list.getRange(2, 4, rows.length, 1).setHorizontalAlignment("center"); 
-    list.getRange(2, 5, rows.length, 1).setHorizontalAlignment("center");
-    list.getRange(2, 6, rows.length, 1).setHorizontalAlignment("center");
-    list.getRange(2, 7, rows.length, 1).setHorizontalAlignment("left"); 
-
-    if (fullTableRange.getBandings().length === 0) {
-       fullTableRange.applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY);
-    }
     
     // AUTOMATICKÉ VYROVNÁNÍ SLOUPCŮ
     list.autoResizeColumns(1, CONFIG.SHEET_HEADER.length);
