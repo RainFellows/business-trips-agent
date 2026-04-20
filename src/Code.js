@@ -1,8 +1,8 @@
 /**
- * @version 2.4.0
+ * @version 2.5.0
  * @author Antigravity AI
  * @description Automatizace cestovních příkazů z Kalendáře do Tabulky.
- * Feature 2.4.0: Standardizace měst, oddělení dopravy do sloupce, vylepšená filtrace.
+ * Feature 2.5.0: Inteligentní výběr hlavního zákazníka (scoring podle účastníků a akcí).
  */
 
 // --- KONFIGURACE ---
@@ -301,6 +301,8 @@ function ziskatKlientaZPrekryvu(start, end, transportEventId) {
   const udalosti = CalendarApp.getDefaultCalendar().getEvents(start, end);
   const domeny = new Set();
   
+  const stats = new Map(); // doména -> { events: 0, people: new Set() }
+  
   udalosti.forEach(ev => {
     // Přeskočíme samotnou cestovní událost
     if (ev.getId() === transportEventId) return;
@@ -329,32 +331,62 @@ function ziskatKlientaZPrekryvu(start, end, transportEventId) {
       return;
     }
     
-    // Musí to být buď OWNER, YES nebo MAYBE (pokud chceme být benevolentnější), 
-    // ale pro jistotu držíme YES / OWNER
     if (myStatus !== CalendarApp.GuestStatus.YES && myStatus !== CalendarApp.GuestStatus.OWNER) {
       return;
     }
     
-    // 3. Získáme hosty (včetně nepotvrzených)
+    // 3. SBĚR DAT PRO SCORING
     const guestEmails = ev.getGuestList(true).map(g => g.getEmail().toLowerCase());
     const creators = ev.getCreators().map(c => c.toLowerCase());
+    const vsichniUcastnici = [...guestEmails, ...creators];
     
-    let nalezenaNovaDomena = false;
-    [...guestEmails, ...creators].forEach(email => {
+    // Unikátní domény v rámci TÉTO jedné události
+    const domenyVudalosti = new Set();
+    vsichniUcastnici.forEach(email => {
       const match = email.match(/@([^@]+)$/);
       if (match && !CONFIG.IGNOROVANE_DOMENY.includes(match[1])) {
-        if (!domeny.has(match[1])) {
-           domeny.add(match[1]);
-           nalezenaNovaDomena = true;
+        const dom = match[1];
+        domenyVudalosti.add(dom);
+        
+        if (!stats.has(dom)) {
+          stats.set(dom, { events: 0, people: new Set() });
         }
+        stats.get(dom).people.add(email);
       }
     });
 
-    if (nalezenaNovaDomena) {
-      Logger.log(`   [Identifikace] Událost: "${ev.getTitle()}" | Čas: ${ev.getStartTime().getHours()}:${ev.getStartTime().getMinutes()}`);
-    }
+    // Započítáme účast domény v této události
+    domenyVudalosti.forEach(dom => {
+      stats.get(dom).events += 1;
+    });
   });
-  return Array.from(domeny).join(", ");
+
+  // 4. VÝPOČET SKÓRE A SELEKCE
+  const vysledky = Array.from(stats.entries()).map(([domain, data]) => {
+    return {
+      domain: domain,
+      score: (data.events * 10) + data.people.size,
+      details: `(${data.events}x akce, ${data.people.size} lidí)`
+    };
+  });
+
+  // Seřadíme podle skóre sestupně
+  vysledky.sort((a, b) => b.score - a.score);
+
+  // DIAGNOSTIKA: V testovacím režimu uvidíme, proč byl vybrán vítěz
+  vysledky.forEach(v => {
+    Logger.log(`      -> Doména: ${v.domain} | Skóre: ${v.score} ${v.details}`);
+  });
+
+  if (vysledky.length === 0) return "";
+
+  const vitez = vysledky[0].domain.toUpperCase();
+  const ostatni = vysledky.slice(1, 3).map(v => v.domain); // Max 2 další
+
+  if (ostatni.length > 0) {
+    return `${vitez} (další: ${ostatni.join(", ")})`;
+  }
+  return vitez;
 }
 
 /**

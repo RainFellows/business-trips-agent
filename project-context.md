@@ -63,17 +63,23 @@ The core algorithm pairs departure and arrival events:
 - Uses **fuzzy matching** — doesn't require exact city name match
 
 ### 3. Transport Types & Buffer Time
-- **Train**: Keyword `vlakem`. Uses `HODINY_BUFFER` (default: 1 hour) before and after trip for station transfers.
-- **Car**: Keyword `autem`. No buffer time added. Automatically calculates distance using Google Maps (Driving Mode).
+- **v2.5.0 Features**:
+- Support for both **Train** and **Car** travel.
+- Automatic **Distance Calculation** via Google Maps API for car trips.
+- **Intelligent Main Customer Selection**: Scoring system based on meeting frequency and participant count.
+- Advanced filtering and city name standardization.
 
-### 4. Client Identification
-The script identifies clients based on calendar events overlapping with the trip timeframe.
+### 4. Client Identification (Scoring System)
+The script identifies and ranks clients based on calendar events overlapping with the trip timeframe.
+- **Scoring Algorithm**:
+    - Each domain gets a score: `(Event Count * 10) + Unique Participants Count`.
+    - Domains are sorted by score descending.
+    - **Output**: The winner is displayed in UPPERCASE. Up to two other domains are listed as "others".
 - **Filtering**: Only meetings where the user is `OWNER` or status is `YES`.
 - **Exclusion**:
     - **Domains**: Blacklist in `CONFIG.IGNOROVANE_DOMENY`.
     - **Keywords**: Events with titles containing "Zrušeno", "Canceled", etc., are skipped.
     - **Status Override**: If the user's status is explicitly `NO` (declined), the event is skipped even if they are the `OWNER`.
-- **Extraction**: Collects unique email domains from participants.
 
 ### 5. City Name Standardization
 Helper function `formatovatMesto()` ensures consistent naming (e.g., `praha hl.n.` -> `Praha`). It title-cases the name and strips technical suffixes.
