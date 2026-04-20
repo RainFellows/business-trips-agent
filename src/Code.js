@@ -1,8 +1,8 @@
 /**
- * @version 2.7.0
+ * @version 2.8.0
  * @author Antigravity AI
  * @description Automatizace cestovních příkazů z Kalendáře do Tabulky.
- * Feature 2.7.0: Externí konfigurace v tabulce (list Konfigurace) a vylepšený design.
+ * Feature 2.8.0: Robustní konfigurace, vícedenní dovolené a inteligentní formátování.
  */
 
 // --- KONFIGURACE (Výchozí hodnoty - budou přepsány listem "Konfigurace") ---
@@ -80,7 +80,6 @@ function ziskatCestyZKalendare(start, end) {
   const myEmail = Session.getActiveUser().getEmail().toLowerCase();
   
   const cesty = [];
-  const dovolenyRaw = new Map(); // Datum -> [udalosti]
   const zpracovaneIDs = new Set();
   const homeCityLower = CONFIG.DOMOVSKE_MESTO.toLowerCase();
 
@@ -99,9 +98,7 @@ function ziskatCestyZKalendare(start, end) {
 
     // A) DETEKCE DOVOLENÉ
     if (titleLower.includes("vacation") || titleLower.includes("dovolená")) {
-      const dateStr = Utilities.formatDate(udalost.getStartTime(), Session.getScriptTimeZone(), "yyyy-MM-dd");
-      if (!dovolenyRaw.has(dateStr)) dovolenyRaw.set(dateStr, []);
-      dovolenyRaw.get(dateStr).push(udalost);
+      cesty.push(zpracovatDovolenou(udalost));
       zpracovaneIDs.add(id);
       continue;
     }
@@ -123,12 +120,6 @@ function ziskatCestyZKalendare(start, end) {
     }
   }
 
-  // ZPRACOVÁNÍ DOVOLENÝCH
-  dovolenyRaw.forEach((udalostiDne, dateStr) => {
-    const vysledekDovolene = analyzovatDovolenouDne(udalostiDne);
-    cesty.push(vysledekDovolene);
-  });
-
   // FINÁLNÍ SEŘAZENÍ (chronologicky podle startu)
   cesty.sort((a, b) => {
     const startA = a.start || a.konec;
@@ -140,52 +131,31 @@ function ziskatCestyZKalendare(start, end) {
 }
 
 /**
- * Analyzuje události dovolené v rámci jednoho dne a určí typ (Celý den / Půlden).
+ * Zpracuje jednu událost dovolené a určí, zda je celodenní pro účely formátování.
  */
-function analyzovatDovolenouDne(udalosti) {
-  let jeCelyDen = false;
-  let celkemHodin = 0;
-  let prvniStart = null;
+function zpracovatDovolenou(ev) {
+  const start = ev.getStartTime();
+  const konec = ev.getEndTime();
+  const jeAllDay = ev.isAllDayEvent();
+  
+  // Výpočet trvání v hodinách
+  const trvaniHodin = (konec.getTime() - start.getTime()) / (1000 * 60 * 60);
+  
+  // Celodenní je to, co je tak nastaveno, nebo co trvá >= 8 hodin
+  const jeCelodenni = jeAllDay || trvaniHodin >= 8;
 
-  udalosti.forEach(ev => {
-    if (ev.isAllDayEvent()) {
-      jeCelyDen = true;
-    }
-    
-    const start = ev.getStartTime();
-    const konec = ev.getEndTime();
-    
-    if (!prvniStart || start < prvniStart) prvniStart = start;
-    
-    // Výpočet trvání v hodinách
-    const trvani = (konec.getTime() - start.getTime()) / (1000 * 60 * 60);
-    celkemHodin += trvani;
-  });
-
-  let kategorie = "";
-  if (jeCelyDen || celkemHodin >= 8) {
-    kategorie = "Celý den";
-  } else {
-    // Půlden - určíme podle hranice 12:00
-    if (prvniStart.getHours() < 12) {
-      kategorie = "Dopoledne";
-    } else {
-      kategorie = "Odpoledne";
-    }
-  }
-
-  // Vytvoříme objekt kompatibilní se strukturou cesty pro zápis do tabulky
   return {
     typ: "Dovolená",
     doprava: "-",
-    start: prvniStart,
-    konec: prvniStart, // Pro dovolenou stačí jeden datum
-    cil: kategorie,
+    start: start,
+    konec: konec, 
+    cil: jeCelodenni ? "Celý den" : "Dovolená",
     jeDoma: true,
     jeAuto: false,
+    jeCelodenni: jeCelodenni,
     km: "-",
     klient: "-",
-    udalostId: udalosti[0].getId()
+    udalostId: ev.getId()
   };
 }
 
@@ -196,8 +166,15 @@ function nactitNeboVytvoritKonfiguraci(ss) {
   const NAME = "Konfigurace";
   let sheet = ss.getSheetByName(NAME);
   
-  if (!sheet) {
-    sheet = ss.insertSheet(NAME);
+  // Ověříme, zda list existuje A zda není prázdný (kontrolujeme buňku A4, kde začínají parametry)
+  const jePrazdny = sheet ? (sheet.getLastRow() < 4 || sheet.getRange("A4").getValue() === "") : true;
+
+  if (!sheet || jePrazdny) {
+    if (!sheet) {
+      sheet = ss.insertSheet(NAME);
+    } else {
+      sheet.clear();
+    }
     const setup = [
       ["⚙️ KONFIGURACE BUSINESS TRIPS AGENT", "", ""],
       ["", "", ""],
@@ -366,6 +343,13 @@ function zapsatDoTabulky(ss, data, nazevZaklad) {
     list.getRange(2, 2, rows.length, 2)
       .setNumberFormat("dd.MM.yyyy HH:mm")
       .setHorizontalAlignment("center");
+
+    // SPECIÁLNÍ FORMÁTOVÁNÍ PRO CELODENNÍ AKCE (DOVOLENÉ)
+    data.forEach((c, idx) => {
+      if (c.jeCelodenni) {
+        list.getRange(idx + 2, 2, 1, 2).setNumberFormat("dd.MM.yyyy");
+      }
+    });
 
     list.getRange(2, 1, rows.length, 1).setHorizontalAlignment("left"); 
     list.getRange(2, 4, rows.length, 1).setHorizontalAlignment("center"); 

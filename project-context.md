@@ -35,6 +35,13 @@ Google Sheets    Gmail (notification)
   - `MailApp` — sending HTML email notifications
   - `Maps` (DirectionFinder) — automatic distance calculation for car trips
   - `Session` — getting current user email
+- **v2.8.0 Features**:
+- Support for both **Train** and **Car** travel.
+- Automatic **Distance Calculation** via Google Maps API for car trips.
+- **Intelligent Main Customer Selection**: Scoring system based on frequency and participants.
+- **Vacation/Absence Detection**: Support for multi-day events and intelligent date formatting (date-only for all-day).
+- **External Configuration**: Robust management in a "Konfigurace" sheet (with auto-repair).
+- **Improved UI**: Auto-resized columns and premium sheet design.
 - **Deployment**: Container-bound script (lives inside the Google Sheet)
 - **Local Dev**: `clasp` CLI for push/pull between local files and Apps Script
 
@@ -92,12 +99,10 @@ Helper function `formatovatMesto()` ensures consistent naming (e.g., `praha hl.n
 
 ### 6. Vacation & Absence Detection
 The script scans for keywords `"vacation OR dovolená"`.
-- **Logic**:
-    - Groups events by day.
-    - **Full Day**: If "All-day" flag is set OR cumulative duration >= 8 hours.
-    - **Half Day**: If duration < 8 hours.
-        - **Morning**: If the first event starts before 12:00.
-        - **Afternoon**: If the first event starts at or after 12:00.
+- **v2.8.0 Logic**:
+    - Each calendar event becomes one row (respecting multi-day ranges).
+    - **Full Day Visibility**: If "All-day" flag is set OR duration >= 8 hours, the row is marked as "Celodenní".
+    - **Formatting**: All-day entries are formatted as `dd.MM.yyyy` (date only), while timed entries include `HH:mm`.
 - **Reporting**: Entries are inserted chronologically into the main report.
 
 ### 7. Sheet Naming & Structure
