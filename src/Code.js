@@ -1,14 +1,14 @@
 /**
- * @version 2.5.0
+ * @version 2.6.0
  * @author Antigravity AI
  * @description Automatizace cestovních příkazů z Kalendáře do Tabulky.
- * Feature 2.5.0: Inteligentní výběr hlavního zákazníka (scoring podle účastníků a akcí).
+ * Feature 2.6.0: Detekce dovolených/absencí (celý den, dopoledne, odpoledne).
  */
 
 // --- KONFIGURACE ---
 const CONFIG = {
   DOMOVSKE_MESTO: "Ostrava",
-  HLEDANY_TEXT: "vlakem OR autem", 
+  HLEDANY_TEXT: "vlakem OR autem OR vacation OR dovolená", 
   HODINY_BUFFER: 1,       
   EMAIL_PREDMET: "Cestovní report připraven: ",
   EMAIL_PRIJEMCE: Session.getActiveUser().getEmail(), 
@@ -72,9 +72,10 @@ function ziskatObdobiMinulehoMesice() {
 function ziskatCestyZKalendare(start, end) {
   const calendar = CalendarApp.getDefaultCalendar();
   const udalosti = calendar.getEvents(start, end, { q: CONFIG.HLEDANY_TEXT });
-  const myEmail = Session.getActiveUser().getEmail();
+  const myEmail = Session.getActiveUser().getEmail().toLowerCase();
   
   const cesty = [];
+  const dovolenyRaw = new Map(); // Datum -> [udalosti]
   const zpracovaneIDs = new Set();
   const homeCityLower = CONFIG.DOMOVSKE_MESTO.toLowerCase();
 
@@ -82,15 +83,26 @@ function ziskatCestyZKalendare(start, end) {
 
   for (let i = 0; i < udalosti.length; i++) {
     const udalost = udalosti[i];
-    const creatory = udalost.getCreators();
+    const creatory = udalost.getCreators().map(c => c.toLowerCase());
     
     if (!creatory.includes(myEmail)) continue;
 
     const id = udalost.getId();
     const titleLower = udalost.getTitle().toLowerCase();
-    const jeAuto = titleLower.includes("autem");
     
     if (zpracovaneIDs.has(id)) continue;
+
+    // A) DETEKCE DOVOLENÉ
+    if (titleLower.includes("vacation") || titleLower.includes("dovolená")) {
+      const dateStr = Utilities.formatDate(udalost.getStartTime(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+      if (!dovolenyRaw.has(dateStr)) dovolenyRaw.set(dateStr, []);
+      dovolenyRaw.get(dateStr).push(udalost);
+      zpracovaneIDs.add(id);
+      continue;
+    }
+
+    // B) DETEKCE PRACOVNÍ CESTY
+    const jeAuto = titleLower.includes("autem");
 
     if (titleLower.includes(homeCityLower)) {
       const jeOdjezd = titleLower.includes("z " + homeCityLower);
@@ -106,7 +118,70 @@ function ziskatCestyZKalendare(start, end) {
     }
   }
 
+  // ZPRACOVÁNÍ DOVOLENÝCH
+  dovolenyRaw.forEach((udalostiDne, dateStr) => {
+    const vysledekDovolene = analyzovatDovolenouDne(udalostiDne);
+    cesty.push(vysledekDovolene);
+  });
+
+  // FINÁLNÍ SEŘAZENÍ (chronologicky podle startu)
+  cesty.sort((a, b) => {
+    const startA = a.start || a.konec;
+    const startB = b.start || b.konec;
+    return startA - startB;
+  });
+
   return cesty;
+}
+
+/**
+ * Analyzuje události dovolené v rámci jednoho dne a určí typ (Celý den / Půlden).
+ */
+function analyzovatDovolenouDne(udalosti) {
+  let jeCelyDen = false;
+  let celkemHodin = 0;
+  let prvniStart = null;
+
+  udalosti.forEach(ev => {
+    if (ev.isAllDayEvent()) {
+      jeCelyDen = true;
+    }
+    
+    const start = ev.getStartTime();
+    const konec = ev.getEndTime();
+    
+    if (!prvniStart || start < prvniStart) prvniStart = start;
+    
+    // Výpočet trvání v hodinách
+    const trvani = (konec.getTime() - start.getTime()) / (1000 * 60 * 60);
+    celkemHodin += trvani;
+  });
+
+  let kategorie = "";
+  if (jeCelyDen || celkemHodin >= 8) {
+    kategorie = "Celý den";
+  } else {
+    // Půlden - určíme podle hranice 12:00
+    if (prvniStart.getHours() < 12) {
+      kategorie = "Dopoledne";
+    } else {
+      kategorie = "Odpoledne";
+    }
+  }
+
+  // Vytvoříme objekt kompatibilní se strukturou cesty pro zápis do tabulky
+  return {
+    typ: "Dovolená",
+    doprava: "-",
+    start: prvniStart,
+    konec: prvniStart, // Pro dovolenou stačí jeden datum
+    cil: kategorie,
+    jeDoma: true,
+    jeAuto: false,
+    km: "-",
+    klient: "-",
+    udalostId: udalosti[0].getId()
+  };
 }
 
 function zpracovatOdjezd(udalost, title, cestyRef, idsRef, jeAuto) {

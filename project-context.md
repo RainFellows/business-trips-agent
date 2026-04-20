@@ -63,10 +63,11 @@ The core algorithm pairs departure and arrival events:
 - Uses **fuzzy matching** — doesn't require exact city name match
 
 ### 3. Transport Types & Buffer Time
-- **v2.5.0 Features**:
+- **v2.6.0 Features**:
 - Support for both **Train** and **Car** travel.
 - Automatic **Distance Calculation** via Google Maps API for car trips.
-- **Intelligent Main Customer Selection**: Scoring system based on meeting frequency and participant count.
+- **Intelligent Main Customer Selection**: Scoring system based on frequency and participants.
+- **Vacation/Absence Detection**: Automatic categorization (Full day, Morning, Afternoon).
 - Advanced filtering and city name standardization.
 
 ### 4. Client Identification (Scoring System)
@@ -84,7 +85,17 @@ The script identifies and ranks clients based on calendar events overlapping wit
 ### 5. City Name Standardization
 Helper function `formatovatMesto()` ensures consistent naming (e.g., `praha hl.n.` -> `Praha`). It title-cases the name and strips technical suffixes.
 
-### 6. Sheet Naming & Structure
+### 6. Vacation & Absence Detection
+The script scans for keywords `"vacation OR dovolená"`.
+- **Logic**:
+    - Groups events by day.
+    - **Full Day**: If "All-day" flag is set OR cumulative duration >= 8 hours.
+    - **Half Day**: If duration < 8 hours.
+        - **Morning**: If the first event starts before 12:00.
+        - **Afternoon**: If the first event starts at or after 12:00.
+- **Reporting**: Entries are inserted chronologically into the main report.
+
+### 7. Sheet Naming & Structure
 Sheets are named `{CzechMonthName} - Vlaky`. New "Doprava" (Transport) column added in v2.4.0. Columns are auto-resized for optimal fit.
 
 ## Function Reference
